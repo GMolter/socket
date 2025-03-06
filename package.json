@@ -1,7 +1,7 @@
 {
-  "name": "my-websocket-server",
+  "name": "websocket-server",
   "version": "1.0.0",
-  "description": "A simple Node.js WebSocket server",
+  "description": "Live cursor server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
