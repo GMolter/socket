@@ -7,34 +7,42 @@ const server = app.listen(PORT, () => console.log(`Server running on port ${PORT
 
 const wss = new WebSocket.Server({ server });
 
-// Keep track of each client and their ID
-let clients = new Map();
+// Keep track of scores for Gavin and Carson
+let scoreboard = { Gavin: 0, Carson: 0 };
+
+// Send updated scores to all connected clients
+function broadcastScoreboard() {
+  const data = {
+    type: "scoreUpdate",
+    scoreboard
+  };
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(data));
+    }
+  });
+}
 
 wss.on("connection", (ws) => {
-  // Generate a unique ID for this new client
-  const id = Math.random().toString(36).substr(2, 9);
-  clients.set(ws, id);
+  // Send the current scores to the newly connected client
+  ws.send(JSON.stringify({
+    type: "scoreUpdate",
+    scoreboard
+  }));
 
-  // Listen for messages from this client
+  // Listen for messages like { action: "increment", player: "Gavin" }
   ws.on("message", (message) => {
-    // message is something like { x: 123, y: 456 }
-    const data = JSON.parse(message);
-
-    // Attach the client’s unique ID
-    data.id = id;
-
-    // Broadcast to ALL connected clients (including the sender)
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(data));
+    try {
+      const data = JSON.parse(message);
+      if (data.action === "increment" && scoreboard.hasOwnProperty(data.player)) {
+        scoreboard[data.player]++;
+        broadcastScoreboard();
+      } else if (data.action === "decrement" && scoreboard.hasOwnProperty(data.player)) {
+        scoreboard[data.player]--;
+        broadcastScoreboard();
       }
-    });
-  });
-
-  // If the client disconnects
-  ws.on("close", () => {
-    clients.delete(ws);
+    } catch (e) {
+      console.log("Error parsing message:", e);
+    }
   });
 });
-
-console.log("WebSocket server running...");
