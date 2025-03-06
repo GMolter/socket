@@ -1,100 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Live Cursors with Console</title>
+  <meta charset="UTF-8">
+  <title>Live Scoreboard</title>
   <style>
-    /* Basic page setup */
+    /* Page Setup */
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      overflow: hidden;
-      background: #f0f0f0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
 
-    /* Style for the cursor dots */
-    .cursor {
-      position: absolute;
-      width: 12px;
-      height: 12px;
-      background: red;
-      border-radius: 50%;
-      pointer-events: none;
-      transform: translate(-50%, -50%);
+    /* Title */
+    h1 {
+      margin: 0;
+      padding: 1rem;
+      font-size: 2rem;
+      color: #333;
     }
 
-    /* Simple console at the bottom of the page */
-    #console {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      max-height: 100px;
-      overflow-y: auto;
-      background: #333;
-      color: #eee;
-      font-family: monospace;
-      font-size: 12px;
-      padding: 5px;
-      box-sizing: border-box;
+    /* Scoreboard Section */
+    #scoreboard {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+    .score {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 8px;
+      padding: 1rem 2rem;
+    }
+    .score h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: #333;
+    }
+    .score span {
+      display: block;
+      font-size: 3rem;
+      font-weight: bold;
+      margin-top: 0.5rem;
+      color: #000;
+    }
+
+    /* Controls Section (hidden by default) */
+    #controls {
+      display: none; /* Only show on mobile */
+    }
+    #controls button {
+      font-size: 1rem;
+      margin: 0.5rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      background-color: #333;
+      color: #fff;
+      transition: background-color 0.3s;
+    }
+    #controls button:hover {
+      background-color: #555;
     }
   </style>
 </head>
 <body>
+
+  <h1>Gavin vs. Carson - Live Scoreboard</h1>
+
+  <!-- Scoreboard Display -->
+  <div id="scoreboard">
+    <div class="score">
+      <h2>Gavin</h2>
+      <span id="gavinScore">0</span>
+    </div>
+    <div class="score">
+      <h2>Carson</h2>
+      <span id="carsonScore">0</span>
+    </div>
+  </div>
+
+  <!-- Controls (shown only on mobile) -->
+  <div id="controls">
+    <button id="gavinPlus">Gavin +1</button>
+    <button id="carsonPlus">Carson +1</button>
+    <button id="resetScore">Reset</button>
+  </div>
+
 <script>
-  // Simple function to log messages in the #console div
-  function log(message) {
-    const consoleDiv = document.getElementById("console");
-    if (consoleDiv) {
-      const line = document.createElement("div");
-      line.textContent = message;
-      consoleDiv.appendChild(line);
-      consoleDiv.scrollTop = consoleDiv.scrollHeight; // Auto-scroll to bottom
-    }
+  /****************************************************
+   * 1. Detect if user is on mobile (basic check)
+   ****************************************************/
+  function isMobile() {
+    return /Mobi|Android/i.test(navigator.userAgent);
   }
 
-  // Connect to your Render WebSocket server
+  /****************************************************
+   * 2. WebSocket Setup
+   ****************************************************/
   const ws = new WebSocket("wss://renderwebsocket-u5u4.onrender.com");
-  const cursors = {};
 
-  // Log when the connection opens
-  ws.onopen = () => log("WebSocket connected.");
+  // Our local copy of the scoreboard
+  let scoreboard = { gavin: 0, carson: 0 };
 
-  // Send our mouse position on every mouse move
-  document.addEventListener("mousemove", (e) => {
-    const position = { x: e.clientX, y: e.clientY };
-    ws.send(JSON.stringify(position));
-  });
+  /****************************************************
+   * 3. Display the scoreboard
+   ****************************************************/
+  function updateDisplay() {
+    document.getElementById("gavinScore").textContent = scoreboard.gavin;
+    document.getElementById("carsonScore").textContent = scoreboard.carson;
+  }
 
-  // Handle incoming messages
+  /****************************************************
+   * 4. Broadcast the new score to the server
+   ****************************************************/
+  function broadcastScore() {
+    ws.send(JSON.stringify({
+      type: "score",
+      scoreboard: scoreboard
+    }));
+  }
+
+  /****************************************************
+   * 5. Handle incoming WebSocket messages
+   ****************************************************/
   ws.onmessage = (event) => {
     try {
-      // We expect { id, x, y } from the server
-      const { id, x, y } = JSON.parse(event.data);
-
-      // If we don’t have a cursor for this user yet, create one
-      if (!cursors[id]) {
-        const cursorEl = document.createElement("div");
-        cursorEl.className = "cursor";
-        document.body.appendChild(cursorEl);
-        cursors[id] = cursorEl;
+      const data = JSON.parse(event.data);
+      // If it's a "score" update from someone
+      if (data.type === "score") {
+        scoreboard = data.scoreboard; // Update local scoreboard
+        updateDisplay();             // Refresh UI
       }
-
-      // Move the cursor
-      cursors[id].style.left = x + "px";
-      cursors[id].style.top = y + "px";
-    } catch (error) {
-      log("Error parsing message: " + error);
+    } catch (err) {
+      console.error("Error parsing message:", err);
     }
   };
 
-  // Log when the connection closes or errors
-  ws.onclose = () => log("WebSocket closed.");
-  ws.onerror = (err) => log("WebSocket error: " + err);
-</script>
+  /****************************************************
+   * 6. Mobile Controls
+   ****************************************************/
+  // Show or hide the controls depending on mobile/desktop
+  window.onload = () => {
+    if (isMobile()) {
+      document.getElementById("controls").style.display = "block";
+    } else {
+      document.getElementById("controls").style.display = "none";
+    }
+  };
 
-<!-- Console area at the bottom -->
-<div id="console"></div>
+  // Increment Gavin's score
+  document.getElementById("gavinPlus").addEventListener("click", () => {
+    scoreboard.gavin++;
+    broadcastScore();
+  });
+
+  // Increment Carson's score
+  document.getElementById("carsonPlus").addEventListener("click", () => {
+    scoreboard.carson++;
+    broadcastScore();
+  });
+
+  // Reset scores
+  document.getElementById("resetScore").addEventListener("click", () => {
+    scoreboard.gavin = 0;
+    scoreboard.carson = 0;
+    broadcastScore();
+  });
+</script>
 </body>
 </html>
