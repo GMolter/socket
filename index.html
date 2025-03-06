@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Live Cursors</title>
+  <title>Live Cursors with Console</title>
   <style>
+    /* Basic page setup */
     html, body {
       margin: 0;
       padding: 0;
@@ -11,6 +12,8 @@
       overflow: hidden;
       background: #f0f0f0;
     }
+
+    /* Style for the cursor dots */
     .cursor {
       position: absolute;
       width: 12px;
@@ -20,34 +23,78 @@
       pointer-events: none;
       transform: translate(-50%, -50%);
     }
+
+    /* Simple console at the bottom of the page */
+    #console {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-height: 100px;
+      overflow-y: auto;
+      background: #333;
+      color: #eee;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 5px;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 <body>
 <script>
-  // Use wss:// (WebSocket Secure) for Render
-  const ws = new WebSocket("wss://renderwebsocket-u5u4.onrender.com");
+  // Simple function to log messages in the #console div
+  function log(message) {
+    const consoleDiv = document.getElementById("console");
+    if (consoleDiv) {
+      const line = document.createElement("div");
+      line.textContent = message;
+      consoleDiv.appendChild(line);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight; // Auto-scroll to bottom
+    }
+  }
 
+  // Connect to your Render WebSocket server
+  const ws = new WebSocket("wss://renderwebsocket-u5u4.onrender.com");
   const cursors = {};
 
+  // Log when the connection opens
+  ws.onopen = () => log("WebSocket connected.");
+
+  // Send our mouse position on every mouse move
   document.addEventListener("mousemove", (e) => {
     const position = { x: e.clientX, y: e.clientY };
     ws.send(JSON.stringify(position));
   });
 
+  // Handle incoming messages
   ws.onmessage = (event) => {
-    const { id, x, y } = JSON.parse(event.data);
-    if (!cursors[id]) {
-      const cursorEl = document.createElement("div");
-      cursorEl.className = "cursor";
-      document.body.appendChild(cursorEl);
-      cursors[id] = cursorEl;
+    try {
+      // We expect { id, x, y } from the server
+      const { id, x, y } = JSON.parse(event.data);
+
+      // If we don’t have a cursor for this user yet, create one
+      if (!cursors[id]) {
+        const cursorEl = document.createElement("div");
+        cursorEl.className = "cursor";
+        document.body.appendChild(cursorEl);
+        cursors[id] = cursorEl;
+      }
+
+      // Move the cursor
+      cursors[id].style.left = x + "px";
+      cursors[id].style.top = y + "px";
+    } catch (error) {
+      log("Error parsing message: " + error);
     }
-    cursors[id].style.left = x + "px";
-    cursors[id].style.top = y + "px";
   };
 
-  ws.onclose = () => console.log("WebSocket closed.");
-  ws.onerror = (err) => console.log("WebSocket error:", err);
+  // Log when the connection closes or errors
+  ws.onclose = () => log("WebSocket closed.");
+  ws.onerror = (err) => log("WebSocket error: " + err);
 </script>
+
+<!-- Console area at the bottom -->
+<div id="console"></div>
 </body>
 </html>
