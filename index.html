@@ -24,6 +24,16 @@
       font-size: 3rem; /* Big title */
     }
 
+    /* Connection status in top-right (very small text) */
+    #connectionStatus {
+      position: absolute;
+      top: 0.5rem;
+      right: 1rem;
+      font-size: 0.7rem; /* Very small text */
+      color: #333;
+      opacity: 0.8;
+    }
+
     /******************************************************
      * SCOREBOARD (Desktop Only)
      ******************************************************/
@@ -73,13 +83,12 @@
 
     /* Button styling */
     button {
-      font-size: 2rem; /* Really big text */
-      padding: 1.5rem 2.5rem;
+      font-size: 3rem; /* REALLY big text */
+      padding: 2rem 3rem;
       cursor: pointer;
       border: none;
       border-radius: 12px;
       color: #fff;
-      margin: 0.5rem;
       transition: background-color 0.3s;
     }
     button:hover {
@@ -96,29 +105,14 @@
       background-color: black;
       color: white;
     }
-
-    /******************************************************
-     * CONSOLE AREA
-     ******************************************************/
-    #console {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      max-height: 150px;
-      overflow-y: auto;
-      background: #333;
-      color: #eee;
-      font-family: monospace;
-      font-size: 1.2rem; /* Slightly larger console text */
-      padding: 10px;
-      box-sizing: border-box;
-    }
   </style>
 </head>
 <body>
 
   <h1>Gavin vs. Carson</h1>
+
+  <!-- Tiny connection status in the top-right -->
+  <div id="connectionStatus">Disconnected</div>
 
   <!-- Desktop Scoreboard -->
   <div id="scoreboard">
@@ -155,9 +149,6 @@
     </table>
   </div>
 
-  <!-- On-page console for logging WebSocket events -->
-  <div id="console"></div>
-
 <script>
   /************************************************************
    * 1. Simple device check (mobile vs. desktop)
@@ -185,20 +176,10 @@
   });
 
   /************************************************************
-   * 3. On-page console logging
+   * 3. Connect to WebSocket server & update status
    ************************************************************/
-  function log(message) {
-    const consoleDiv = document.getElementById("console");
-    const line = document.createElement("div");
-    line.textContent = message;
-    consoleDiv.appendChild(line);
-    consoleDiv.scrollTop = consoleDiv.scrollHeight; // Auto-scroll
-  }
-
-  /************************************************************
-   * 4. Connect to WebSocket server
-   ************************************************************/
-  const ws = new WebSocket("wss://renderwebsocket-u5u4.onrender.com");
+  const connectionStatus = document.getElementById("connectionStatus");
+  const ws = new WebSocket("wss://YOUR-WEBSOCKET-URL");
 
   // Local scoreboard state
   let scoreboard = {
@@ -222,22 +203,30 @@
   }
 
   /************************************************************
+   * 4. Handle connection events
+   ************************************************************/
+  ws.onopen = () => {
+    connectionStatus.textContent = "Connected";
+  };
+  ws.onclose = () => {
+    connectionStatus.textContent = "Disconnected";
+  };
+  ws.onerror = () => {
+    connectionStatus.textContent = "Disconnected";
+  };
+
+  /************************************************************
    * 5. Handle incoming messages
    ************************************************************/
-  ws.onopen = () => log("WebSocket connected.");
-  ws.onclose = () => log("WebSocket closed.");
-  ws.onerror = (err) => log("WebSocket error: " + err);
-
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
       if (data.type === "score") {
         scoreboard = data.scoreboard;
         updateDisplay();
-        log(`Scores updated -> Gavin: ${scoreboard.gavin}, Carson: ${scoreboard.carson}`);
       }
     } catch (err) {
-      log("Error parsing message: " + err);
+      // If there's an error parsing, do nothing special
     }
   };
 
