@@ -21,7 +21,7 @@
     /* Main title */
     h1 {
       margin: 1rem;
-      font-size: 3rem; /* Bigger title */
+      font-size: 3rem; /* Big title */
     }
 
     /******************************************************
@@ -57,19 +57,44 @@
       text-align: center;
       margin-bottom: 3rem;
     }
+
+    /* Table layout for mobile buttons */
+    #controls table {
+      margin: 0 auto; /* Center the table */
+      border-spacing: 1rem;
+    }
+    #controls th {
+      font-size: 2rem;
+      padding-bottom: 0.5rem;
+    }
+    #controls td {
+      text-align: center;
+    }
+
+    /* Button styling */
     button {
-      font-size: 1.8rem; /* Bigger button text */
-      margin: 1rem;
-      padding: 1rem 2rem;
+      font-size: 2rem; /* Really big text */
+      padding: 1.5rem 2.5rem;
       cursor: pointer;
       border: none;
       border-radius: 12px;
-      background-color: #333;
       color: #fff;
+      margin: 0.5rem;
       transition: background-color 0.3s;
     }
     button:hover {
-      background-color: #555;
+      opacity: 0.8;
+    }
+    /* Specific button colors */
+    .increment {
+      background-color: blue;
+    }
+    .decrement {
+      background-color: red;
+    }
+    .reset {
+      background-color: black;
+      color: white;
     }
 
     /******************************************************
@@ -109,13 +134,25 @@
 
   <!-- Mobile Controls -->
   <div id="controls">
-    <button id="gavinPlus">Gavin +1</button>
-    <button id="gavinMinus">Gavin -1</button>
-    <br/>
-    <button id="carsonPlus">Carson +1</button>
-    <button id="carsonMinus">Carson -1</button>
-    <br/>
-    <button id="resetScore">Reset</button>
+    <table>
+      <tr>
+        <th>Gavin</th>
+        <th>Carson</th>
+      </tr>
+      <tr>
+        <td><button id="gavinPlus" class="increment">+1</button></td>
+        <td><button id="carsonPlus" class="increment">+1</button></td>
+      </tr>
+      <tr>
+        <td><button id="gavinMinus" class="decrement">-1</button></td>
+        <td><button id="carsonMinus" class="decrement">-1</button></td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <button id="resetScore" class="reset">RESET</button>
+        </td>
+      </tr>
+    </table>
   </div>
 
   <!-- On-page console for logging WebSocket events -->
