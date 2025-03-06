@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Cursors</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #f0f0f0;
+    }
+    .cursor {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: red;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+<script>
+  // Use wss:// (WebSocket Secure) for Render
+  const ws = new WebSocket("wss://renderwebsocket-u5u4.onrender.com");
+
+  const cursors = {};
+
+  document.addEventListener("mousemove", (e) => {
+    const position = { x: e.clientX, y: e.clientY };
+    ws.send(JSON.stringify(position));
+  });
+
+  ws.onmessage = (event) => {
+    const { id, x, y } = JSON.parse(event.data);
+    if (!cursors[id]) {
+      const cursorEl = document.createElement("div");
+      cursorEl.className = "cursor";
+      document.body.appendChild(cursorEl);
+      cursors[id] = cursorEl;
+    }
+    cursors[id].style.left = x + "px";
+    cursors[id].style.top = y + "px";
+  };
+
+  ws.onclose = () => console.log("WebSocket closed.");
+  ws.onerror = (err) => console.log("WebSocket error:", err);
+</script>
+</body>
+</html>
