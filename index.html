@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Live Scoreboard</title>
+  <title>Gavin vs. Carson - Scoreboard</title>
   <style>
-    /* Page Setup */
+    /* Basic page setup */
     html, body {
       margin: 0;
       padding: 0;
@@ -15,163 +15,218 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      color: #333;
     }
 
     /* Title */
     h1 {
-      margin: 0;
-      padding: 1rem;
+      margin: 1rem;
       font-size: 2rem;
-      color: #333;
     }
 
-    /* Scoreboard Section */
+    /******************************************************
+     * SCOREBOARD (Desktop Only)
+     ******************************************************/
     #scoreboard {
       display: flex;
       gap: 2rem;
       margin-bottom: 2rem;
     }
-    .score {
+    .player {
       text-align: center;
       background: rgba(255, 255, 255, 0.7);
       border-radius: 8px;
       padding: 1rem 2rem;
     }
-    .score h2 {
+    .player h2 {
       margin: 0;
       font-size: 1.5rem;
-      color: #333;
     }
-    .score span {
+    .score-value {
       display: block;
       font-size: 3rem;
       font-weight: bold;
       margin-top: 0.5rem;
-      color: #000;
     }
 
-    /* Controls Section (hidden by default) */
+    /******************************************************
+     * CONTROLS (Mobile Only)
+     ******************************************************/
     #controls {
-      display: none; /* Only show on mobile */
+      display: none; /* We'll toggle this in JS for mobile */
+      text-align: center;
+      margin-bottom: 2rem;
     }
-    #controls button {
-      font-size: 1rem;
+    button {
+      font-size: 1.5rem;
       margin: 0.5rem;
-      padding: 0.5rem 1rem;
+      padding: 1rem 2rem;
       cursor: pointer;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       background-color: #333;
       color: #fff;
       transition: background-color 0.3s;
     }
-    #controls button:hover {
+    button:hover {
       background-color: #555;
+    }
+
+    /******************************************************
+     * CONSOLE AREA
+     ******************************************************/
+    #console {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-height: 100px;
+      overflow-y: auto;
+      background: #333;
+      color: #eee;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 5px;
+      box-sizing: border-box;
     }
   </style>
 </head>
 <body>
 
-  <h1>Gavin vs. Carson - Live Scoreboard</h1>
+  <h1>Gavin vs. Carson</h1>
 
-  <!-- Scoreboard Display -->
+  <!-- Desktop Scoreboard -->
   <div id="scoreboard">
-    <div class="score">
+    <div class="player">
       <h2>Gavin</h2>
-      <span id="gavinScore">0</span>
+      <span id="gavinScore" class="score-value">0</span>
     </div>
-    <div class="score">
+    <div class="player">
       <h2>Carson</h2>
-      <span id="carsonScore">0</span>
+      <span id="carsonScore" class="score-value">0</span>
     </div>
   </div>
 
-  <!-- Controls (shown only on mobile) -->
+  <!-- Mobile Controls -->
   <div id="controls">
     <button id="gavinPlus">Gavin +1</button>
+    <button id="gavinMinus">Gavin -1</button>
+    <br/>
     <button id="carsonPlus">Carson +1</button>
+    <button id="carsonMinus">Carson -1</button>
+    <br/>
     <button id="resetScore">Reset</button>
   </div>
 
+  <!-- On-page console for logging WebSocket events -->
+  <div id="console"></div>
+
 <script>
-  /****************************************************
-   * 1. Detect if user is on mobile (basic check)
-   ****************************************************/
+  /************************************************************
+   * 1. Simple device check (mobile vs. desktop)
+   ************************************************************/
   function isMobile() {
     return /Mobi|Android/i.test(navigator.userAgent);
   }
 
-  /****************************************************
-   * 2. WebSocket Setup
-   ****************************************************/
+  /************************************************************
+   * 2. Toggle UI (scoreboard vs. controls) based on device
+   ************************************************************/
+  window.addEventListener("load", () => {
+    const scoreboardDiv = document.getElementById("scoreboard");
+    const controlsDiv = document.getElementById("controls");
+
+    if (isMobile()) {
+      // Hide scoreboard, show controls
+      scoreboardDiv.style.display = "none";
+      controlsDiv.style.display = "block";
+    } else {
+      // Show scoreboard, hide controls
+      scoreboardDiv.style.display = "flex";
+      controlsDiv.style.display = "none";
+    }
+  });
+
+  /************************************************************
+   * 3. On-page console logging
+   ************************************************************/
+  function log(message) {
+    const consoleDiv = document.getElementById("console");
+    const line = document.createElement("div");
+    line.textContent = message;
+    consoleDiv.appendChild(line);
+    consoleDiv.scrollTop = consoleDiv.scrollHeight; // Auto-scroll
+  }
+
+  /************************************************************
+   * 4. Connect to WebSocket server
+   ************************************************************/
   const ws = new WebSocket("wss://renderwebsocket-u5u4.onrender.com");
 
-  // Our local copy of the scoreboard
-  let scoreboard = { gavin: 0, carson: 0 };
+  // Local scoreboard state
+  let scoreboard = {
+    gavin: 0,
+    carson: 0
+  };
 
-  /****************************************************
-   * 3. Display the scoreboard
-   ****************************************************/
+  // Update the displayed scores
   function updateDisplay() {
     document.getElementById("gavinScore").textContent = scoreboard.gavin;
     document.getElementById("carsonScore").textContent = scoreboard.carson;
   }
 
-  /****************************************************
-   * 4. Broadcast the new score to the server
-   ****************************************************/
-  function broadcastScore() {
-    ws.send(JSON.stringify({
+  // Broadcast new scores to server
+  function broadcastScores() {
+    const data = {
       type: "score",
-      scoreboard: scoreboard
-    }));
+      scoreboard
+    };
+    ws.send(JSON.stringify(data));
   }
 
-  /****************************************************
-   * 5. Handle incoming WebSocket messages
-   ****************************************************/
+  /************************************************************
+   * 5. Handle incoming messages
+   ************************************************************/
+  ws.onopen = () => log("WebSocket connected.");
+  ws.onclose = () => log("WebSocket closed.");
+  ws.onerror = (err) => log("WebSocket error: " + err);
+
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      // If it's a "score" update from someone
       if (data.type === "score") {
-        scoreboard = data.scoreboard; // Update local scoreboard
-        updateDisplay();             // Refresh UI
+        scoreboard = data.scoreboard;
+        updateDisplay();
+        log(`Scores updated -> Gavin: ${scoreboard.gavin}, Carson: ${scoreboard.carson}`);
       }
     } catch (err) {
-      console.error("Error parsing message:", err);
+      log("Error parsing message: " + err);
     }
   };
 
-  /****************************************************
-   * 6. Mobile Controls
-   ****************************************************/
-  // Show or hide the controls depending on mobile/desktop
-  window.onload = () => {
-    if (isMobile()) {
-      document.getElementById("controls").style.display = "block";
-    } else {
-      document.getElementById("controls").style.display = "none";
-    }
-  };
-
-  // Increment Gavin's score
+  /************************************************************
+   * 6. Mobile Buttons (Increment / Decrement)
+   ************************************************************/
   document.getElementById("gavinPlus").addEventListener("click", () => {
     scoreboard.gavin++;
-    broadcastScore();
+    broadcastScores();
   });
-
-  // Increment Carson's score
+  document.getElementById("gavinMinus").addEventListener("click", () => {
+    scoreboard.gavin--;
+    broadcastScores();
+  });
   document.getElementById("carsonPlus").addEventListener("click", () => {
     scoreboard.carson++;
-    broadcastScore();
+    broadcastScores();
   });
-
-  // Reset scores
+  document.getElementById("carsonMinus").addEventListener("click", () => {
+    scoreboard.carson--;
+    broadcastScores();
+  });
   document.getElementById("resetScore").addEventListener("click", () => {
     scoreboard.gavin = 0;
     scoreboard.carson = 0;
-    broadcastScore();
+    broadcastScores();
   });
 </script>
 </body>
